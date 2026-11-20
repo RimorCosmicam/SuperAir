@@ -1,5 +1,6 @@
 package dev.superair.server;
 
+import android.annotation.SuppressLint;
 import android.content.AttributionSource;
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -26,7 +27,11 @@ import java.util.List;
  * The ActivityThread bootstrap follows scrcpy (Apache-2.0), which documents the Samsung-specific
  * needs; the display and task calls come from Kamui Desktop and miniMont, where each one was
  * measured on this phone rather than guessed.
+ *
+ * Lint's BlockedPrivateApi is about apps: this class only ever runs in the shell's app_process,
+ * where the hidden API policy does not apply.
  */
+@SuppressLint("BlockedPrivateApi")
 public final class Sys {
     private static Object activityThread;
     private static Context context;

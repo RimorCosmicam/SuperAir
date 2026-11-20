@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -14,6 +16,28 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+    }
+
+    // Release signing comes from keystore.properties at the project root, which is never committed.
+    // Without it, a release build is left unsigned rather than failing.
+    val keystore = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { file ->
+        Properties().apply { file.inputStream().use { load(it) } }
+    }
+    signingConfigs {
+        if (keystore != null) create("release") {
+            storeFile = file(keystore.getProperty("storeFile"))
+            storePassword = keystore.getProperty("storePassword")
+            keyAlias = keystore.getProperty("keyAlias")
+            keyPassword = keystore.getProperty("keyPassword")
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            // No R8: the host is loaded by app_process by class name, and Sys reaches hidden
+            // framework APIs by reflection. Shrinking would have to be taught all of it.
+            isMinifyEnabled = false
+            if (keystore != null) signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     sourceSets {
