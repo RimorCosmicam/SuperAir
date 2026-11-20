@@ -89,7 +89,7 @@ power key again, unlock, and the cover comes back where you left it.
 
 ## Setting up
 
-1. Install the APK, open SuperAir, and turn it on in Accessibility when asked. It only uses this to
+1. Install the APK from the [latest release](https://github.com/RimorCosmicam/SuperAir/releases/latest), open SuperAir, and turn it on in Accessibility when asked. It only uses this to
    float the pairing bar.
 2. Press **Pair with floating bar**. SuperAir opens Developer options with a bar floating above it.
    - Open Wireless debugging and tap "Pair device with pairing code".
@@ -112,6 +112,10 @@ From then on SuperAir starts its host by itself, with no computer involved.
 One APK holds both halves: the app, and the shell-side host compiled into the same artifact.
 Nothing is copied to `/data/local/tmp`. `app_process` is handed the APK's own installed path, so
 there is one thing to install and no writable copy of SuperAir's code on the device.
+
+A release build signs itself with the key named in `keystore.properties` at the project root
+(`storeFile`, `storePassword`, `keyAlias`, `keyPassword`). That file is never committed. Without
+it, `./gradlew assembleRelease` makes an unsigned APK.
 
 With a computer attached over adb, this builds, installs and starts the host:
 
