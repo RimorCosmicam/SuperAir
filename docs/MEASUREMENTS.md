@@ -160,3 +160,25 @@ host starts, make sure a host that dies never leaves the cover dark.
 
 While the cover is dark the app drops every touch. Without that, a phone in a pocket unlocks
 itself.
+
+## 12. Locking killed the host — ANSWERED
+
+With the glasses plugged in, a video playing fullscreen on the glasses went black at unlock while
+its sound carried on. The app had not crashed: its display had been removed, because the host that
+owned it was gone. The log said "Virtual display device released because application token died:
+com.android.shell", with no exception from the host.
+
+adbd had restarted. With "File transfer" as the default USB configuration, One UI turns USB data
+off at every lock (`setEnabledFunctions functions=262145 usbDataUnlocked=false`) and back on at
+every unlock (`setScreenUnlockedFunctions: mtp`). This happens even when the port holds the glasses
+and no computer. Each change of USB function restarts adbd, and init kills adbd's whole process
+group with it.
+
+`setsid` does not help. The host is still in adbd's cgroup (`/system/uid_0/pid_<adbd>`), which is
+owned by `system`, so the shell user cannot move it out.
+
+The host now turns the unlock switch off when it starts (`svc usb setScreenUnlockedFunctions ""`),
+and moves USB to charging if it is in a data mode (`svc usb setFunctions ""`). The second step
+restarts adbd one last time, before any display exists; the app starts the host again, and from
+then on lock and unlock leave USB alone. File transfer still works when picked from the USB
+notification. It is just no longer switched on by itself at every unlock.

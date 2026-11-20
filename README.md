@@ -78,6 +78,11 @@ Press the power key and the cover goes dark, but every app on the glasses keeps 
 cover is dark it ignores touch completely, so the phone can't wake itself up in a pocket. Press the
 power key again, unlock, and the cover comes back where you left it.
 
+To make that possible, SuperAir keeps USB in charging mode. One UI's default switches USB to file
+transfer at every unlock and back at every lock, and each switch restarts adbd, which would take
+SuperAir's host and every app on the glasses with it. File transfer still works when you pick it
+from the USB notification.
+
 ## What it needs
 
 - **A Galaxy Z Flip 7.** It is verified on Android 17 with One UI 8.5. Other Android 13+ phones
