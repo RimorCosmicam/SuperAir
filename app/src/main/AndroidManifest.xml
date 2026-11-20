@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The weather under the clock on Home: coarse position only, rounded before it is sent. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
+
+    <application
+        android:label="SuperAir"
+        android:icon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SuperAir"
+        android:hardwareAccelerated="true">
+
+        <!--
+          The Flip's cover screen (FlexWindow). subscreen_compatible is the one that matters:
+          without it One UI letterboxes the app into the top of the cover display and puts its own
+          expand chrome underneath, which on a phone that is never unfolded costs a fifth of the
+          only screen there is. Taken from TheHud.
+        -->
+        <meta-data android:name="com.samsung.android.multidisplay.keep_process_alive" android:value="true" />
+        <meta-data android:name="com.samsung.android.activity.showWhenLocked" android:value="true" />
+        <meta-data android:name="com.samsung.android.coverscreen.subscreen_compatible" android:value="true" />
+
+        <!--
+          The phone is folded whenever SuperAir is in use, so this activity lives on the cover
+          screen and nothing may ever require display 0. resizeableActivity and the small layout
+          are what let One UI put it there at all.
+        -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:resizeableActivity="true"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|keyboardHidden"
+            android:theme="@style/Theme.SuperAir"
+        android:hardwareAccelerated="true">
+
+        <!--
+          The Flip's cover screen (FlexWindow). subscreen_compatible is the one that matters:
+          without it One UI letterboxes the app into the top of the cover display and puts its own
+          expand chrome underneath, which on a phone that is never unfolded costs a fifth of the
+          only screen there is. Taken from TheHud.
+        -->
+        <meta-data android:name="com.samsung.android.multidisplay.keep_process_alive" android:value="true" />
+        <meta-data android:name="com.samsung.android.activity.showWhenLocked" android:value="true" />
+        <meta-data android:name="com.samsung.android.coverscreen.subscreen_compatible" android:value="true" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data
+                android:name="com.samsung.android.activity.showWhenLocked"
+                android:value="true" />
+        </activity>
+
+        <service
+            android:name=".AirService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the glasses display and its shell host running while the phone is folded" />
+        </service>
+
+        <!--
+          Floats the pairing bar over Settings, and nothing else. It is the only way to pair on a
+          folded phone: Settings throws its code away as soon as its screen is left.
+        -->
+        <service
+            android:name=".NotificationFeed"
+            android:exported="true"
+            android:label="SuperAir notifications"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".PairingService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service" />
+        </service>
+
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+          Where the shell host leaves its binder.
+
+          Exported, which looks wrong and is not: getContentProviderExternal still refuses a
+          provider the app has not exported, so an unexported one cannot be reached by uid 2000
+          either. Shizuku has shipped it this way for years. The door is narrow rather than shut —
+          BridgeProvider.call ignores every caller that is not the shell user, and the other five
+          ContentProvider methods do nothing at all.
+        -->
+        <provider
+            android:name=".BridgeProvider"
+            android:authorities="dev.superair.bridge"
+            android:exported="true"
+            android:multiprocess="false"
+            android:grantUriPermissions="false"
+            android:enabled="true" />
+
+        <!-- One UI keeps our process alive across display changes rather than restarting it. -->
+        <meta-data
+            android:name="com.samsung.android.multidisplay.keep_process_alive"
+            android:value="true" />
+    </application>
+</manifest>

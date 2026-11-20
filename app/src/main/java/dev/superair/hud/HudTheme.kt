@@ -1,0 +1,50 @@
+package dev.superair.hud
+
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.em
+import androidx.compose.ui.unit.sp
+import dev.superair.R
+
+/**
+ * MiniMate's "Mont" panel material, as on the iPhone: black at ninety-two percent, Mont in white,
+ * state carried by brightness alone, one accent in the theme colour.
+ *
+ * On the glasses one dp is one point of the 1920x1080 canvas (the glasses window sets its density
+ * so), which keeps every number here the same as the iPhone app's.
+ */
+object HudTheme {
+    const val CANVAS_WIDTH = 1920f
+    const val CANVAS_HEIGHT = 1080f
+    const val SAFE_INSET = 64f
+    const val CORNER = 28f
+
+    const val SURFACE_ALPHA = 0.92f
+    val surface = Color.Black.copy(alpha = SURFACE_ALPHA)
+    val ink = Color.White
+    val inkDim = Color.White.copy(alpha = 0.55f)
+    val inkFaint = Color.White.copy(alpha = 0.28f)
+    /** The theme colour: mustard unless another is chosen. Compose state, so it redraws on change. */
+    val accent: Color get() = ThemeState.accent
+    val edge = Color.White.copy(alpha = 0.09f)
+
+    val mont = FontFamily(
+        Font(R.font.poppins_thin, FontWeight.Thin),
+        Font(R.font.poppins_light, FontWeight.Light),
+        Font(R.font.poppins_regular, FontWeight.Normal),
+        Font(R.font.poppins_semibold, FontWeight.SemiBold),
+        Font(R.font.poppins_black, FontWeight.Black),
+    )
+
+    /** Mont at a size in points, with tracking in points as SwiftUI's `tracking` takes it. */
+    fun mont(size: Float, weight: FontWeight = FontWeight.Black, tracking: Float = 0f, color: Color = ink): TextStyle =
+        TextStyle(
+            fontFamily = mont, fontWeight = weight, fontSize = size.sp, color = color,
+            letterSpacing = if (tracking == 0f) TextUnit.Unspecified else (tracking / size).em,
+            lineHeight = (size * 1.18f).sp,
+        )
+}
