@@ -39,12 +39,27 @@ final class Host extends IAirHost.Stub {
         Thread cover = new Thread(this::powerKeys, "power-keys");
         cover.setDaemon(true);
         cover.start();
+        Thread glasses = new Thread(this::watchGlasses, "glasses-watch");
+        glasses.setDaemon(true);
+        glasses.start();
         Runtime.getRuntime().addShutdownHook(new Thread(this::restoreCover));
     }
 
+    /**
+     * The app has (re)connected.
+     *
+     * It only says hello with a binder it has not seen, which means either this host is new and
+     * has no panels, or the app is new: restarted by an install, a crash or One UI, and holding
+     * none of its old panels. Those panels' apps would keep running on displays nobody can see,
+     * playing and draining until the glasses came out. So whatever is left is closed.
+     */
     @Override public void hello(IAirClient client) {
         this.client = client;
         Log.d("the app is here");
+        for (Integer id : new ArrayList<>(panels.keySet())) {
+            Log.d("panel " + id + " was left from the app before; closing it");
+            closePanel(id);
+        }
         tellCover();
     }
 
@@ -148,7 +163,7 @@ final class Host extends IAirHost.Stub {
         }
     }
 
-    private android.hardware.display.VirtualDisplay standIn;
+    private volatile android.hardware.display.VirtualDisplay standIn;
 
     @Override public synchronized int standIn(int width, int height, int dpi) {
         if (standIn != null) return standIn.getDisplay().getDisplayId();
@@ -253,6 +268,38 @@ final class Host extends IAirHost.Stub {
         awake.release();
         restoreCover();
         System.exit(0);
+    }
+
+    /** How long the glasses may be gone before the host gives up. A cable wiggle is shorter. */
+    private static final long GONE_MILLIS = 10_000;
+
+    /**
+     * Ends the host once the glasses have gone.
+     *
+     * The host holds a screen wake lock for the glasses, and nothing else ever let it go: with the
+     * glasses in a drawer it kept the phone awake for a whole day. So without the glasses, or the
+     * development stand-in, for GONE_MILLIS, everything is closed and the process exits. The app
+     * starts a new host when the glasses come back. The clock starts at launch, so a host started
+     * with nothing plugged in goes too.
+     */
+    private void watchGlasses() {
+        long seen = System.currentTimeMillis();
+        while (true) {
+            try {
+                Thread.sleep(2000);
+                if (glassesDisplay() >= 0 || standIn != null) {
+                    seen = System.currentTimeMillis();
+                } else if (System.currentTimeMillis() - seen > GONE_MILLIS) {
+                    Log.d("the glasses are gone");
+                    shutdown();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            } catch (Exception e) {
+                Log.e("glasses watch", e);
+            }
+        }
     }
 
     /**

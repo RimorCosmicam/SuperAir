@@ -52,21 +52,27 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        startForegroundService(Intent(this, AirService::class.java))
+        startService()
         setContent {
             val launcher = HostLauncher.of(this)
             // Read live, not once: both are granted in Settings while this screen sits behind it,
             // and coming back must move straight on without restarting the app.
             var paired by remember { mutableStateOf(launcher.paired) }
             var granted by remember { mutableStateOf(PairingService.granted(this)) }
+            var on by remember { mutableStateOf(launcher.enabled) }
             LaunchedEffect(Unit) {
                 while (true) {
                     paired = launcher.paired || Air.host != null
                     granted = PairingService.granted(this@MainActivity)
+                    on = launcher.enabled
                     delay(700)
                 }
             }
-            if (paired) CoverScreen() else Pairing(launcher, granted)
+            when {
+                !on -> TurnedOff { launcher.turnOn(); on = true; startService() }
+                paired -> CoverScreen()
+                else -> Pairing(launcher, granted)
+            }
         }
     }
 
@@ -79,8 +85,18 @@ class MainActivity : ComponentActivity() {
             prefs.edit().putBoolean("askedLocation", true).apply()
             requestPermissions(arrayOf(android.Manifest.permission.ACCESS_COARSE_LOCATION), 7)
         }
-        startForegroundService(Intent(this, AirService::class.java))
+        startService()
         dev.superair.glasses.GlassesPresenter.refresh()
+    }
+
+    /**
+     * Only with the glasses in: the service holds wake locks and would only stop itself again.
+     * Pairing is not required here, since the service is what notices a fresh pairing.
+     */
+    private fun startService() {
+        if (HostLauncher.of(this).enabled && dev.superair.glasses.GlassesPresenter.wanted(this)) {
+            startForegroundService(Intent(this, AirService::class.java))
+        }
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
@@ -139,6 +155,24 @@ private fun Pairing(launcher: HostLauncher, granted: Boolean) {
             color = Color.White.copy(alpha = 0.34f),
             fontSize = 10.sp,
         )
+    }
+}
+
+/** SuperAir was turned off in Settings. It stays off, glasses or not, until turned on here. */
+@Composable
+private fun TurnedOff(turnOn: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().background(Color.Black).padding(13.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp, Alignment.CenterVertically),
+    ) {
+        Text("SUPERAIR IS OFF", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Black)
+        Text(
+            "Nothing is running and plugging in the glasses starts nothing. Turn it on to use " +
+                "the glasses again.",
+            color = Color.White.copy(alpha = 0.58f),
+            fontSize = 11.sp,
+        )
+        Button("TURN ON", Modifier.fillMaxWidth(), onClick = turnOn)
     }
 }
 

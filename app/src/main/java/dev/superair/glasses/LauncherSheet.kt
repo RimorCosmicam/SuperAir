@@ -339,6 +339,7 @@ private fun Settings() {
         SettingRow("set:labels", "App names", if (Home.labels) "SHOWN" else "HIDDEN") { Home.toggleLabels() }
         SettingRow("set:sort", "Order", Home.sort.title) { Home.nextSort() }
         SettingRow("set:reset", "Default folders", "RESET") { Home.resetToDefault() }
+        SettingRow("set:off", "SuperAir", "TURN OFF") { Home.settingsOpen = false; Home.turnOff() }
     }
 }
 

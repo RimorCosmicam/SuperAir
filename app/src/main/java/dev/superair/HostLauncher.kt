@@ -34,10 +34,10 @@ class HostLauncher private constructor(private val context: Context) {
     private val _status = MutableStateFlow("Starting…")
     val status = _status.asStateFlow()
 
-    /** Whether the glasses should be running. Stop clears it, so a stopped desk stays stopped. */
+    /** Whether SuperAir is on. Turning it off clears this, so it stays off until turned on. */
     var enabled: Boolean
         get() = prefs.getBoolean("enabled", true)
-        set(value) = prefs.edit().putBoolean("enabled", value).apply()
+        private set(value) = prefs.edit().putBoolean("enabled", value).apply()
 
     var paired: Boolean
         get() = prefs.getBoolean("paired", false)
@@ -96,6 +96,25 @@ class HostLauncher private constructor(private val context: Context) {
 
     fun stop() {
         runCatching { Air.host?.shutdown() }
+    }
+
+    /**
+     * Off until turned on again: the host closes every app on the glasses and exits, the service
+     * lets its locks go, and plugging the glasses in no longer starts anything.
+     */
+    fun turnOff() {
+        enabled = false
+        report("Off")
+        // The host exits inside the call, so the binder dies under it: off the main thread.
+        Thread { stop() }.start()
+        context.stopService(android.content.Intent(context, AirService::class.java))
+        dev.superair.glasses.GlassesPresenter.stop()
+    }
+
+    fun turnOn() {
+        enabled = true
+        report("Starting…")
+        AirService.startIfWanted(context)
     }
 
     companion object {

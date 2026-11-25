@@ -71,18 +71,30 @@ object GlassesPresenter {
 
     private var standInId: Int? = null
 
+    /** True between start and stop: while AirService runs, which is while the glasses are on. */
+    @Volatile var running = false
+        private set
+
+    /** A safety net: whatever took our window away without saying so, it comes back. */
+    private val safetyNet = object : Runnable {
+        override fun run() { refresh(); main.postDelayed(this, 3000) }
+    }
+
     fun start(context: Context) {
-        if (::app.isInitialized) { refresh(); return }
-        app = context.applicationContext
-        Home.init(app)
-        Weather.start(app)
-        Battery.start(app)
-        app.getSystemService(DisplayManager::class.java).registerDisplayListener(listener, main)
+        if (Looper.myLooper() != Looper.getMainLooper()) { main.post { start(context) }; return }
+        if (!::app.isInitialized) {
+            app = context.applicationContext
+            Home.init(app)
+            Weather.start(app)
+            Battery.start(app)
+        }
+        if (!running) {
+            running = true
+            app.getSystemService(DisplayManager::class.java).registerDisplayListener(listener, main)
+            main.removeCallbacks(safetyNet)
+            main.postDelayed(safetyNet, 3000)
+        }
         refresh()
-        // A safety net: whatever took our window away without saying so, it comes back.
-        main.postDelayed(object : Runnable {
-            override fun run() { refresh(); main.postDelayed(this, 3000) }
-        }, 3000)
     }
 
     /** The accessibility service came or went: the scene moves between the overlay and the presentation. */
@@ -91,7 +103,14 @@ object GlassesPresenter {
         main.post { tearDown(); retries = 0; refresh() }
     }
 
-    fun stop() = tearDown()
+    /** Takes the scene down and stops watching for it, until the next start. */
+    fun stop() {
+        if (Looper.myLooper() != Looper.getMainLooper()) { main.post { stop() }; return }
+        running = false
+        main.removeCallbacks(safetyNet)
+        if (::app.isInitialized) app.getSystemService(DisplayManager::class.java).unregisterDisplayListener(listener)
+        tearDown()
+    }
 
     private var rebindAsked = false
 
@@ -129,20 +148,32 @@ object GlassesPresenter {
      * adds one per panel of its own. The glasses arrive over DisplayPort, so they are the one
      * external display; everything virtual is somebody's software, ours included.
      */
-    fun glassesDisplay(): Display? {
-        val manager = app.getSystemService(DisplayManager::class.java)
+    fun glassesDisplay(context: Context = app): Display? {
+        val manager = context.getSystemService(DisplayManager::class.java)
         return manager.displays
             .filter { it.displayId >= 2 && it.type() == TYPE_EXTERNAL }
             .maxByOrNull { it.displayId }
     }
 
+    /**
+     * Whether SuperAir has anywhere to be: the glasses are plugged in, or the development stand-in
+     * is switched on. Everything that holds a lock, AirService and the host, runs only while this
+     * is true.
+     */
+    fun wanted(context: Context): Boolean =
+        glassesDisplay(context) != null ||
+            context.getSharedPreferences("host", Context.MODE_PRIVATE).getBoolean("standIn", false)
+
     private fun standIn(): Display? {
         if (!useStandIn) return null
         val host = dev.superair.Air.host ?: return null
-        val id = standInId ?: runCatching { host.standIn(1920, 1080, 160) }.getOrNull()
-            ?.takeIf { it >= 0 } ?: return null
+        val manager = app.getSystemService(DisplayManager::class.java)
+        // The stand-in belongs to the host that made it. A new host has none, and without one it
+        // sees no screen and exits: so a remembered id counts only while its display exists.
+        standInId?.let { manager.getDisplay(it) }?.let { return it }
+        val id = runCatching { host.standIn(1920, 1080, 160) }.getOrNull()?.takeIf { it >= 0 } ?: return null
         standInId = id
-        return app.getSystemService(DisplayManager::class.java).getDisplay(id)
+        return manager.getDisplay(id)
     }
 
     private fun Display.type(): Int = runCatching {
@@ -153,7 +184,7 @@ object GlassesPresenter {
     private const val TYPE_EXTERNAL = 2
 
     fun refresh() {
-        if (!::app.isInitialized) return
+        if (!::app.isInitialized || !running) return
         if (Looper.myLooper() != Looper.getMainLooper()) { main.post { refresh() }; return }
         val display = glassesDisplay() ?: standIn()
         val service = dev.superair.PairingService.instance

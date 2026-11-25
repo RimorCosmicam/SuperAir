@@ -311,6 +311,12 @@ object Home {
     }
     fun endSearch() { searching = false; query = ""; page = 0 }
 
+    /** Settings → Turn off: everything stops, and it stays off until turned on from the cover. */
+    fun turnOff() {
+        val context = context ?: return
+        dev.superair.HostLauncher.of(context).turnOff()
+    }
+
     // ------------------------------------------------------------------ typing
 
     /** Typing from the cover keyboard while the search or a folder's name is being typed. */

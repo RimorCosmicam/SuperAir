@@ -414,6 +414,7 @@ private fun PhoneSettings() {
         Setting("App names", if (Home.labels) "SHOWN" else "HIDDEN") { Home.toggleLabels() }
         Setting("Order", Home.sort.title) { Home.nextSort() }
         Setting("Default folders", "RESET") { Home.resetToDefault(); Home.settingsOpen = false }
+        Setting("SuperAir", "TURN OFF") { Home.settingsOpen = false; Home.turnOff() }
     }
 }
 

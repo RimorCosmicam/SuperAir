@@ -65,13 +65,31 @@ import kotlinx.coroutines.launch
  * Kamui Desktop, where this was the answer to exactly the same problem.
  */
 class PairingService : AccessibilityService() {
+    /**
+     * Plugging the glasses in is what starts SuperAir.
+     *
+     * AirService holds wake locks, so it runs only while the glasses are in, and stops itself once
+     * they are gone. Something has to notice when they come back. Android sends no broadcast for a
+     * display, but this service is bound by the system the whole time it is switched on, so its
+     * display listener hears the glasses arrive.
+     */
+    private val displays = object : android.hardware.display.DisplayManager.DisplayListener {
+        override fun onDisplayAdded(displayId: Int) = AirService.startIfWanted(this@PairingService)
+        override fun onDisplayChanged(displayId: Int) = Unit
+        override fun onDisplayRemoved(displayId: Int) = Unit
+    }
+
     override fun onServiceConnected() {
         instance = this
+        getSystemService(android.hardware.display.DisplayManager::class.java)
+            .registerDisplayListener(displays, android.os.Handler(android.os.Looper.getMainLooper()))
+        AirService.startIfWanted(this)
         // The glasses move up into an overlay, above DeX, as soon as the service is on.
         dev.superair.glasses.GlassesPresenter.serviceChanged()
     }
 
     override fun onUnbind(intent: Intent?): Boolean {
+        getSystemService(android.hardware.display.DisplayManager::class.java).unregisterDisplayListener(displays)
         PairingBar.hide()
         instance = null
         dev.superair.glasses.GlassesPresenter.serviceChanged()

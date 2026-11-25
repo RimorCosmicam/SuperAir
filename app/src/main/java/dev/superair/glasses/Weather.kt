@@ -33,7 +33,8 @@ object Weather {
         app = context.applicationContext
         refresh()
         main.postDelayed(object : Runnable {
-            override fun run() { refresh(); main.postDelayed(this, 10 * 60_000L) }
+            // Only while the glasses are up: nobody reads the weather in a drawer.
+            override fun run() { if (GlassesPresenter.running) refresh(); main.postDelayed(this, 10 * 60_000L) }
         }, 10 * 60_000L)
     }
 

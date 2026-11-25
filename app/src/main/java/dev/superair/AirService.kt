@@ -12,6 +12,7 @@ import android.content.pm.ServiceInfo
 import android.net.wifi.WifiManager
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 import dev.superair.glasses.GlassesPresenter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,11 +23,15 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
- * Keeps the host up and the glasses attached.
+ * Keeps the host up and the glasses attached, while the glasses are plugged in.
  *
  * adbd restarts around sleep and wake on this phone and takes the host with it, so this checks
  * every few seconds and starts it again. The phone is folded the whole time it is in use, so the
  * locks are not an optimisation: without them the desk goes dark in your pocket.
+ *
+ * They are also why this must not outlive the glasses. It used to run from boot to shutdown and
+ * kept the phone awake for ten hours with the glasses in a drawer. Now it stops itself shortly
+ * after the glasses go, and PairingService starts it again when they come back.
  */
 class AirService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -58,10 +63,24 @@ class AirService : Service() {
 
         val launcher = HostLauncher.of(this)
         scope.launch {
+            var goneSince = 0L
             while (isActive) {
-                if (launcher.enabled) keepUp(launcher)
+                if (!launcher.enabled) break
+                if (GlassesPresenter.wanted(this@AirService)) {
+                    goneSince = 0L
+                    keepUp(launcher)
+                } else {
+                    val now = System.currentTimeMillis()
+                    if (goneSince == 0L) goneSince = now
+                    else if (now - goneSince > GONE_MILLIS) {
+                        Log.i(TAG, "no glasses; stopping")
+                        launcher.report("Waiting for the glasses")
+                        break
+                    }
+                }
                 delay(CHECK_MILLIS)
             }
+            stopSelf()
         }
     }
 
@@ -94,16 +113,23 @@ class AirService : Service() {
     }
 
     companion object {
+        private const val TAG = "SuperAir"
         private const val CHANNEL = "glasses"
         private const val CHECK_MILLIS = 5000L
+        /** As long as the host waits: a cable wiggle should not end the session. */
+        private const val GONE_MILLIS = 10_000L
+
+        /** Starts the service if SuperAir is on, paired, and the glasses are plugged in. */
+        fun startIfWanted(context: Context) {
+            val launcher = HostLauncher.of(context)
+            if (!launcher.enabled || !launcher.paired || !GlassesPresenter.wanted(context)) return
+            runCatching { context.startForegroundService(Intent(context, AirService::class.java)) }
+                .onFailure { Log.w(TAG, "could not start the service", it) }
+        }
     }
 }
 
+/** The glasses are rarely plugged in at boot, but if they are, start at once. */
 class BootReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) {
-        val launcher = HostLauncher.of(context)
-        if (launcher.enabled && launcher.paired) {
-            context.startForegroundService(Intent(context, AirService::class.java))
-        }
-    }
+    override fun onReceive(context: Context, intent: Intent) = AirService.startIfWanted(context)
 }

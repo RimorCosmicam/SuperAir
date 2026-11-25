@@ -124,13 +124,22 @@ private object Typing { var on by mutableStateOf(false) }
 fun CoverScreen() {
     var pad by remember { mutableStateOf(if (Air.panels.isEmpty()) Pad.APPS else Pad.TOUCHPAD) }
     var glasses by remember { mutableStateOf(GlassesPresenter.attached) }
-    LaunchedEffect(Unit) { while (true) { glasses = GlassesPresenter.attached; delay(1000) } }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var overlay by remember { mutableStateOf(dev.superair.PairingService.granted(context)) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            glasses = GlassesPresenter.attached
+            overlay = dev.superair.PairingService.granted(context)
+            delay(1000)
+        }
+    }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         // Always clear of the camera cutout: the status bar's room even while One UI hides the bar,
         // so the layout does not jump up under the camera when it goes.
         Column(Modifier.fillMaxSize().windowInsetsPadding(
             WindowInsets.statusBarsIgnoringVisibility.union(WindowInsets.displayCutout))) {
+            if (!overlay) AccessibilityOff()
             // Home takes the whole screen below the tabs: it is a page of its own, as on the glasses.
             if (pad != Pad.APPS) Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -150,6 +159,26 @@ fun CoverScreen() {
             }
         }
         KeyboardProxy()
+    }
+}
+
+/**
+ * The accessibility service is off, so the glasses fall back to a Presentation, and One UI covers
+ * a Presentation with its lock screen: locking the phone hides everything on the glasses. One UI
+ * switches the service off whenever SuperAir is force-stopped, so this has to be said, not assumed.
+ */
+@Composable
+private fun AccessibilityOff() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(RoundedCornerShape(12.dp))
+        .background(HudTheme.accent).clickable {
+            runCatching {
+                context.startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            }
+        }.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        BasicText("Turn SuperAir on in Accessibility, or locking the phone hides the glasses",
+            style = HudTheme.mont(11f, FontWeight.SemiBold, color = Color.Black), modifier = Modifier.weight(1f))
     }
 }
 

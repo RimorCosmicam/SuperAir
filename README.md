@@ -83,6 +83,19 @@ transfer at every unlock and back at every lock, and each switch restarts adbd, 
 SuperAir's host and every app on the glasses with it. File transfer still works when you pick it
 from the USB notification.
 
+## Plugging in and out
+
+SuperAir runs only while the glasses are plugged in. Plug them in and it starts by itself. Unplug
+them, and about ten seconds later it closes the apps on the glasses and stops, so nothing holds the
+phone awake with the glasses in a drawer. A cable wiggle shorter than that changes nothing.
+
+**Settings → SuperAir → Turn off** stops it straight away, and it stays off, glasses or not, until
+you open SuperAir on the cover and press **Turn on**.
+
+Starting by itself, and staying above the lock screen, both need SuperAir's accessibility service.
+One UI switches that off whenever an app is force-stopped, so the cover shows a gold warning
+whenever it is off.
+
 ## What it needs
 
 - **A Galaxy Z Flip 7.** It is verified on Android 17 with One UI 8.5. Other Android 13+ phones

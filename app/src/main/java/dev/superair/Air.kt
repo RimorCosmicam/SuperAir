@@ -88,8 +88,10 @@ object Air {
         if (host?.asBinder() == binder && binder.isBinderAlive) return
         val host = IAirHost.Stub.asInterface(binder) ?: return
         runCatching { binder.linkToDeath({ post { detach() } }, 0) }
-        this.host = host
+        // Hello first: the host closes any panels left from before, and nothing may open a new
+        // one until it has, so the host is only published here after.
         runCatching { host.hello(client) }.onFailure { Log.w(TAG, "hello failed", it) }
+        this.host = host
         runCatching { apps = host.apps().mapNotNull(AppEntry::parse) }
             .onFailure { Log.w(TAG, "could not list apps", it) }
         Log.i(TAG, "host attached, ${apps.size} apps")

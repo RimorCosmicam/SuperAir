@@ -14,8 +14,8 @@ android {
         applicationId = "dev.superair"
         minSdk = 33
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.1.2"
+        versionCode = 4
+        versionName = "0.1.3"
     }
 
     // Release signing comes from keystore.properties at the project root, which is never committed.
